@@ -1,0 +1,410 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>bundleid</key>
+	<string>com.ancientes.alfredapp.pass</string>
+	<key>category</key>
+	<string>Tools</string>
+	<key>connections</key>
+	<dict>
+		<key>3A1F95CF-1539-4AFA-9BF7-2799BFA8697B</key>
+		<array>
+			<dict>
+				<key>destinationuid</key>
+				<string>BD1A4F5C-8B66-473D-83D4-F70E87C90AE0</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+		</array>
+		<key>7BFF095A-A3F6-4C64-AE3E-A1981761346A</key>
+		<array>
+			<dict>
+				<key>destinationuid</key>
+				<string>53ABB05D-7D70-4956-B56F-0C3A28E5ECC1</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+		</array>
+		<key>BD1A4F5C-8B66-473D-83D4-F70E87C90AE0</key>
+		<array>
+			<dict>
+				<key>destinationuid</key>
+				<string>7BFF095A-A3F6-4C64-AE3E-A1981761346A</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+		</array>
+	</dict>
+	<key>createdby</key>
+	<string>Dwayne Haley</string>
+	<key>description</key>
+	<string>Utility for managing passwords</string>
+	<key>disabled</key>
+	<false/>
+	<key>name</key>
+	<string>pass</string>
+	<key>objects</key>
+	<array>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>concurrently</key>
+				<false/>
+				<key>escaping</key>
+				<integer>102</integer>
+				<key>script</key>
+				<string>#!/usr/bin/env bash
+
+# Get the input query from Alfred
+query="$1"
+
+# Set PATH to ensure pass and other utilities are accessible
+export PATH='/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin'
+
+# Set clipboard timeout for pass
+export PASSWORD_STORE_CLIP_TIME=20 
+
+cp_pass() {
+    # Retrieve matching entries from pass
+    ACCOUNT_NAME=$query
+
+    # Copy password to clipboard securely
+    pass show -c $ACCOUNT_NAME
+
+    # Clear Alfred's clipboard history after 1 second (optional)
+    sleep 1
+    sqlite3 ~/Library/Application\ Support/Alfred/Databases/clipboard.alfdb \
+        'DELETE FROM clipboard WHERE ts=(select max(ts) from clipboard);'
+}
+
+# Call the function with the provided query argument
+cp_pass "$query"</string>
+				<key>scriptargtype</key>
+				<integer>1</integer>
+				<key>scriptfile</key>
+				<string></string>
+				<key>type</key>
+				<integer>0</integer>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.action.script</string>
+			<key>uid</key>
+			<string>BD1A4F5C-8B66-473D-83D4-F70E87C90AE0</string>
+			<key>version</key>
+			<integer>2</integer>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>lastpathcomponent</key>
+				<false/>
+				<key>onlyshowifquerypopulated</key>
+				<false/>
+				<key>removeextension</key>
+				<false/>
+				<key>text</key>
+				<string>{query}</string>
+				<key>title</key>
+				<string>Password added to clipboard</string>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.output.notification</string>
+			<key>uid</key>
+			<string>7BFF095A-A3F6-4C64-AE3E-A1981761346A</string>
+			<key>version</key>
+			<integer>1</integer>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>alfredfiltersresults</key>
+				<false/>
+				<key>alfredfiltersresultsmatchmode</key>
+				<integer>0</integer>
+				<key>argumenttreatemptyqueryasnil</key>
+				<true/>
+				<key>argumenttrimmode</key>
+				<integer>0</integer>
+				<key>argumenttype</key>
+				<integer>0</integer>
+				<key>escaping</key>
+				<integer>102</integer>
+				<key>keyword</key>
+				<string>p</string>
+				<key>queuedelaycustom</key>
+				<integer>3</integer>
+				<key>queuedelayimmediatelyinitially</key>
+				<true/>
+				<key>queuedelaymode</key>
+				<integer>0</integer>
+				<key>queuemode</key>
+				<integer>1</integer>
+				<key>runningsubtext</key>
+				<string>Retrieve passwords...</string>
+				<key>script</key>
+				<string>#!/usr/bin/env bash
+
+# Enabled line buffering for grep to ensure immediate output
+# This prevents delayed results in Alfred's interface
+
+# Get the search query from the first argument passed to the script
+query="$1"
+
+# Exit early if query is less than 2 characters
+if [[ ${#query} -lt 2 ]]; then
+    echo "{
+        \"items\": [
+            {
+                \"title\": \"Type at least 2 characters to search\"
+            }
+        ]
+    }"
+    exit 0
+fi
+
+# Set up the PATH to include common binary locations
+# This ensures the script can find required executables regardless of where it's run
+export PATH='/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin'
+
+# First pass: Get matching entries from the password store
+# 1. List all entries (pass)
+# 2. Skip the first line which contains "Password Store" (tail -n +2)
+# 3. Search case-insensitive for query (grep -i)
+# 4. Clean up the tree structure characters and whitespace (sed)
+PASS_ACCOUNTS=$(pass | tail -n +2 | grep --line-buffered -i "$query" | sed 's/^[├└─│ ]*//;s/└──//;s/^[[:space:]]*//')
+
+# Second pass: Get the full entity path with grep
+# 1. Search for query in password store (pass grep -i)
+# 2. Take first match (head -n 1)
+# 3. Remove colons and ANSI color codes (sed)
+PASS_ACCOUNTS=$(pass grep --line-buffered -i "$query" | sed 's/://g' | sed -r "s/\x1B$$0-9;*mK//g" | sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[m|K]//g" | grep -v "^Account")
+
+# Check if any matching accounts were found
+if [[ -z "$PASS_ACCOUNTS" ]]; then
+    # Return JSON with "not found" message for Alfred
+    echo "{
+        \"items\": [
+            {
+                \"title\": \"Password not found for $query\"
+            }
+        ]
+    }"
+else
+    # Initialize empty string for storing JSON items
+    PARSED_ITEMS=""
+    
+    # Process each matching account
+    while read -r line; do
+        # Get the current account name
+        ACCOUNT_NAME=$(echo "$line")
+
+        # Get account details from pass
+        # 1. Show password entry (pass show)
+        # 2. Get last two lines containing metadata (tail -n 2)
+        # 3. Remove trailing whitespace (sed)
+        ACCOUNT_NAME=$(pass show "$ACCOUNT_NAME" | tail -n 2 | sed 's/[[:space:]]*$//')
+
+        # Get the full entity path for the current entry
+        # Clean up ANSI color codes and formatting
+        FULL_ENTITY="$line"
+
+        # Extract account title from metadata
+        # Look for "Account:" line and get everything after the colon
+        ACCOUNT_TITLE=$(echo "$ACCOUNT_NAME" | grep --line-buffered "^Account:" | awk -F ": " '{print $2}')
+
+        # Extract username from metadata
+        # 1. Look for "Username:" line
+        # 2. Clean up whitespace
+        # 3. Get everything after the colon
+        USERNAME=$(echo "$ACCOUNT_NAME" | grep --line-buffered "^Username: " | sed 's/^[[:space:]]*//' | awk -F ": " '{print $2}' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+
+        # Set default username if none found
+        if [[ -z "$USERNAME" ]]; then
+            USERNAME="N/A"
+        fi
+
+        # Build JSON object for current entry using heredoc
+        # Note: Must use tabs for indentation with &lt;&lt;-EOF
+        PARSED_ITEMS+=$(cat &lt;&lt;-EOF
+{
+                "title": "Account: $ACCOUNT_TITLE",
+                "subtitle": "Username: $USERNAME",
+                "arg": "$FULL_ENTITY",
+                "autocomplete": "$ACCOUNT_TITLE",
+                "uid": "$FULL_ENTITY"
+            },
+		EOF
+        )
+    done &lt;&lt;&lt; "$PASS_ACCOUNTS"
+
+    # Remove trailing comma and output final JSON structure
+    # Format JSON with proper indentation for readability
+    PARSED_ITEMS=${PARSED_ITEMS%,}
+    echo "{
+        \"items\": [
+            ${PARSED_ITEMS%,}
+        ]
+    }"
+fi
+</string>
+				<key>scriptargtype</key>
+				<integer>1</integer>
+				<key>scriptfile</key>
+				<string></string>
+				<key>subtext</key>
+				<string>Retrive password from the password store</string>
+				<key>title</key>
+				<string>Get Password</string>
+				<key>type</key>
+				<integer>0</integer>
+				<key>withspace</key>
+				<true/>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.input.scriptfilter</string>
+			<key>uid</key>
+			<string>3A1F95CF-1539-4AFA-9BF7-2799BFA8697B</string>
+			<key>version</key>
+			<integer>3</integer>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>concurrently</key>
+				<false/>
+				<key>escaping</key>
+				<integer>102</integer>
+				<key>script</key>
+				<string>#!/usr/bin/env bash
+
+# Clear clipboard after 20 seconds for security
+
+# Get the content that was just copied
+COPIED_CONTENT=$(pbpaste)
+
+# Sleep for 20 seconds
+sleep 20
+
+# Check if the clipboard still contains the same content
+if [ "$(pbpaste)" = "$COPIED_CONTENT" ]; then
+    # Only clear if the content hasn't changed
+    pbcopy &lt; /dev/null
+fi</string>
+				<key>scriptargtype</key>
+				<integer>1</integer>
+				<key>scriptfile</key>
+				<string></string>
+				<key>type</key>
+				<integer>0</integer>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.action.script</string>
+			<key>uid</key>
+			<string>53ABB05D-7D70-4956-B56F-0C3A28E5ECC1</string>
+			<key>version</key>
+			<integer>2</integer>
+		</dict>
+	</array>
+	<key>readme</key>
+	<string>&lt;h1 align="center"&gt;
+	&lt;a href='#'&gt;&lt;img src='https://img.shields.io/static/v1?style=for-the-badge&amp;message=Alfred&amp;color=fff&amp;logo=Alfred&amp;logoColor=000&amp;label=' style='border:0px;height:36px;' /&gt;&lt;/a&gt;
+	&lt;/br&gt;pass workflow
+&lt;/h1&gt;
+
+Alfred workflow that retrieve passwords from [pass](https://www.passwordstore.org/) (password-store).
+
+## Precondition
+
+1. Install pass: `brew install pass` and initialize the it.
+2. Insert new entry into your password-store, simply execute:&lt;br&gt; `pass insert &lt;serviceName&gt;_&lt;username&gt;`.\
+In this example, I've also created a category to the service by:&lt;br&gt; `pass insert &lt;category&gt;/&lt;serviceName&gt;_&lt;username&gt;`.
+
+	```shell
+	❯ pass insert social_media/facebook_john-doe
+	```
+
+&lt;p align="center"&gt;
+	&lt;img src='assets/pass-ls.png' alt="Password List"&gt;
+&lt;/p&gt;
+
+3. Modify the entry and append the following fields by executing:&lt;br&gt; `pass edit &lt;category&gt;/&lt;serviceName&gt;_&lt;username&gt;`:
+
+	```shell
+	❯ pass edit social_media/facebook_john-doe
+	supersecuredpassword!
+	Account: facebook
+	Username: john-doe
+	```
+
+## Usage
+
+The default keyword is `p`. which requires at least 2 chars to trigger the search.
+
+When hitting `⏎ Return` on a selected item, the password is copied to the clipboard for 20 seconds and won't be displayed inside Alfred clipboard.
+
+&lt;p align="center"&gt;
+	&lt;img src='assets/filter_example.png' alt="Alfred Trigger"&gt;
+	&lt;img src='assets/notification.png' alt="Alfred Notification"&gt;
+&lt;/p&gt;
+
+## Acknowledgements
+
+The following resource were used when creating this workflow:
+
+* The excellent [alfred-password-store](https://github.com/exaroth/alfred-password-store) by [Konrad Wąsowicz](https://github.com/exaroth).
+
+A big ♥️ _thank you_!</string>
+	<key>uidata</key>
+	<dict>
+		<key>3A1F95CF-1539-4AFA-9BF7-2799BFA8697B</key>
+		<dict>
+			<key>xpos</key>
+			<real>175</real>
+			<key>ypos</key>
+			<real>130</real>
+		</dict>
+		<key>53ABB05D-7D70-4956-B56F-0C3A28E5ECC1</key>
+		<dict>
+			<key>xpos</key>
+			<real>840</real>
+			<key>ypos</key>
+			<real>130</real>
+		</dict>
+		<key>7BFF095A-A3F6-4C64-AE3E-A1981761346A</key>
+		<dict>
+			<key>xpos</key>
+			<real>630</real>
+			<key>ypos</key>
+			<real>130</real>
+		</dict>
+		<key>BD1A4F5C-8B66-473D-83D4-F70E87C90AE0</key>
+		<dict>
+			<key>xpos</key>
+			<real>415</real>
+			<key>ypos</key>
+			<real>130</real>
+		</dict>
+	</dict>
+	<key>userconfigurationconfig</key>
+	<array/>
+	<key>variablesdontexport</key>
+	<array/>
+	<key>version</key>
+	<string>1.0.0</string>
+	<key>webaddress</key>
+	<string>https://github.com/ancientes/alfred-pass</string>
+</dict>
+</plist>
